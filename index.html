@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Книги — Timeline</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="top-bar">
+    <div id="filters">
+      <button class="filter-btn active" data-status="">Все</button>
+      <button class="filter-btn" data-status="прочитал">Прочитал</button>
+      <button class="filter-btn" data-status="читаю">Читаю</button>
+      <button class="filter-btn" data-status="хочу прочитать">Хочу прочитать</button>
+    </div>
+  </div>
+
+  <div id="timeline">
+    <div id="timeline-axis"></div>
+    <div id="timeline-items"></div>
+  </div>
+
+  <div id="book-panel">
+    <button id="panel-close">&times;</button>
+    <div id="panel-content"></div>
+  </div>
+
+  <script src="books.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
