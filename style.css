@@ -238,7 +238,7 @@ body {
 /* Card */
 
 .tl-card {
-  display: inline-block;
+  display: block;
   text-align: left;
   background: rgba(20, 20, 24, 0.7);
   border: 1px solid #1e1e22;
@@ -246,7 +246,15 @@ body {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.2s;
-  max-width: 100%;
+  width: 100%;
+}
+
+.tl-item.left .tl-card {
+  border-top-right-radius: 0;
+}
+
+.tl-item.right .tl-card {
+  border-top-left-radius: 0;
 }
 
 .tl-card:hover {

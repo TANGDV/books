@@ -389,7 +389,7 @@
       var connWidth;
       if (track) {
         var step = TRACK_OFFSET + track.lane * (LANE_WIDTH + LANE_GAP);
-        connWidth = itemGap - step + LANE_WIDTH / 2;
+        connWidth = itemGap - step - LANE_WIDTH / 2;
       } else {
         connWidth = itemGap;
       }
@@ -402,7 +402,6 @@
       conn.style.height = "1px";
       conn.style.width = connWidth + "px";
       conn.style.background = "#2a2a2e";
-      conn.style.zIndex = "2";
       conn.style.top = cardY + "px";
 
       if (side === "left") {
