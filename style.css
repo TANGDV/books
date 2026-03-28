@@ -149,6 +149,18 @@ body {
   white-space: nowrap;
 }
 
+.axis-month.past .axis-month-dot {
+  background: #555;
+}
+
+.axis-month.past .axis-month-label {
+  color: #666;
+}
+
+.axis-month.past::before {
+  background: linear-gradient(to right, transparent, #444, transparent);
+}
+
 /* Timeline items (book entries) */
 
 #timeline-items {
@@ -172,24 +184,7 @@ body {
   text-align: left;
 }
 
-/* Connector line from item to axis */
-
-.tl-item::before {
-  content: "";
-  position: absolute;
-  top: -1px;
-  width: 30px;
-  height: 1px;
-  background: #2a2a2e;
-}
-
-.tl-item.left::before {
-  right: -30px;
-}
-
-.tl-item.right::before {
-  left: -30px;
-}
+/* Connectors are created dynamically in JS */
 
 
 /* Duration tracks beside the axis */
@@ -359,7 +354,7 @@ body {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
-  z-index: 2;
+  z-index: 4;
   pointer-events: none;
 }
 
@@ -372,12 +367,17 @@ body {
 }
 
 .axis-now-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
   color: #e8c547;
   font-size: 10px;
   letter-spacing: 1px;
   text-align: center;
-  margin-top: 3px;
+  padding-bottom: 4px;
   opacity: 0.6;
+  white-space: nowrap;
 }
 
 /* Book panel (same as site1) */
@@ -485,18 +485,6 @@ body {
 
   .tl-item {
     width: calc(50% - 24px);
-  }
-
-  .tl-item::before {
-    width: 16px;
-  }
-
-  .tl-item.left::before {
-    right: -16px;
-  }
-
-  .tl-item.right::before {
-    left: -16px;
   }
 
   #book-panel {

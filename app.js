@@ -63,13 +63,20 @@
 
     if (withDate.length === 0) return;
 
-    // Sort newest first
-    withDate.sort(function (a, b) { return b.start - a.start; });
+    // Compute anchor date (top circle) for each entry
+    for (var i = 0; i < withDate.length; i++) {
+      var e = withDate[i];
+      e.anchor = e.end || (e.book.status === "читаю" ? today : e.start);
+    }
+
+    // Sort newest anchor first
+    withDate.sort(function (a, b) { return b.anchor - a.anchor; });
 
     // Date range
-    var earliest = new Date(withDate[withDate.length - 1].start);
+    var earliest = new Date(withDate[0].start);
     var latest = new Date(withDate[0].start);
     for (var i = 0; i < withDate.length; i++) {
+      if (withDate[i].start < earliest) earliest = new Date(withDate[i].start);
       if (withDate[i].end && withDate[i].end > latest) latest = new Date(withDate[i].end);
     }
     if (today > latest) latest = new Date(today);
@@ -175,7 +182,7 @@
     var baseSideBot = { left: 0, right: 0 };
     for (var i = 0; i < placedItems.length; i++) {
       var item = placedItems[i];
-      var baseY = dayIdx(item._entry.start) * BASE_PPD;
+      var baseY = dayIdx(item._entry.anchor) * BASE_PPD;
       var side = baseSideBot.left <= baseSideBot.right ? "left" : "right";
       item._side = side;
       baseSideBot[side] = Math.max(baseSideBot[side], baseY) + item._measuredH + GAP;
@@ -194,8 +201,8 @@
 
     function applyConstraints(cards) {
       for (var i = 0; i < cards.length; i++) {
-        var di1 = dayIdx(cards[i]._entry.start);
-        var di2 = (i + 1 < cards.length) ? dayIdx(cards[i + 1]._entry.start) : totalDays;
+        var di1 = dayIdx(cards[i]._entry.anchor);
+        var di2 = (i + 1 < cards.length) ? dayIdx(cards[i + 1]._entry.anchor) : totalDays;
         var numDays = di2 - di1;
         if (numDays <= 0) numDays = 1;
         var neededPpd = (cards[i]._measuredH + GAP) / numDays;
@@ -247,7 +254,7 @@
         itemsEl.appendChild(yearEl);
       } else {
         var monthEl = document.createElement("div");
-        monthEl.className = "axis-month";
+        monthEl.className = "axis-month" + (cur <= today ? " past" : "");
         monthEl.style.top = boundaryY + "px";
         var dot = document.createElement("div");
         dot.className = "axis-month-dot";
@@ -278,14 +285,28 @@
       itemsEl.appendChild(nowEl);
     }
 
-    // --- Pass 2: Place cards at dateToY(startDate) ---
+    // --- Pass 2: Place cards with collision resolution ---
+    var sideBottom = { left: 0, right: 0 };
     for (var i = 0; i < placedItems.length; i++) {
       var item = placedItems[i];
-      var y = dateToY(item._entry.start);
-      item.className = "tl-item " + item._side;
+      var y = dateToY(item._entry.anchor);
+      var side = item._side;
+      if (y < sideBottom[side]) {
+        y = sideBottom[side];
+      }
+      sideBottom[side] = y + item._measuredH + GAP;
+      item.className = "tl-item " + side;
       item.style.top = y + "px";
       item.style.visibility = "";
       item._placedY = y;
+    }
+
+    // Extend container if collision resolution pushed cards beyond totalHeight
+    var maxBottom = Math.max(sideBottom.left, sideBottom.right);
+    if (maxBottom > totalHeight) {
+      totalHeight = maxBottom;
+      itemsEl.style.height = totalHeight + "px";
+      axisEl.style.height = totalHeight + "px";
     }
 
     // --- Duration tracks (per-side lane assignment) ---
@@ -310,6 +331,7 @@
         side: item._side,
         lane: 0,
       };
+      item._track = t;
       if (item._side === "left") leftTracks.push(t);
       else rightTracks.push(t);
     }
@@ -352,6 +374,44 @@
       el.style.width = LANE_WIDTH + "px";
       el.style.setProperty("--track-color", t.color);
       trackContainer.appendChild(el);
+    }
+
+    // --- Connector lines from cards to their tracks ---
+    var isMobile = window.innerWidth <= 640;
+    var itemGap = isMobile ? 24 : 40;
+
+    for (var i = 0; i < placedItems.length; i++) {
+      var item = placedItems[i];
+      var cardY = item._placedY;
+      var side = item._side;
+      var track = item._track;
+
+      var connWidth;
+      if (track) {
+        var step = TRACK_OFFSET + track.lane * (LANE_WIDTH + LANE_GAP);
+        connWidth = itemGap - step + LANE_WIDTH / 2;
+      } else {
+        connWidth = itemGap;
+      }
+      if (connWidth <= 0) continue;
+
+      var conn = document.createElement("div");
+      conn.className = "tl-connector";
+      conn.setAttribute("data-status", item.getAttribute("data-status") || "");
+      conn.style.position = "absolute";
+      conn.style.height = "1px";
+      conn.style.width = connWidth + "px";
+      conn.style.background = "#2a2a2e";
+      conn.style.zIndex = "2";
+      conn.style.top = cardY + "px";
+
+      if (side === "left") {
+        conn.style.left = "calc(50% - " + itemGap + "px)";
+      } else {
+        conn.style.left = "calc(50% + " + (itemGap - connWidth) + "px)";
+      }
+
+      itemsEl.appendChild(conn);
     }
 
     // --- No-date books ---
@@ -492,6 +552,16 @@
         el.classList.remove("dimmed");
       } else {
         el.classList.add("dimmed");
+      }
+    }
+    // Connectors
+    var connectors = document.querySelectorAll(".tl-connector");
+    for (var i = 0; i < connectors.length; i++) {
+      var el = connectors[i];
+      if (!status || el.getAttribute("data-status") === status) {
+        el.style.opacity = "";
+      } else {
+        el.style.opacity = "0.08";
       }
     }
     // Tracks
