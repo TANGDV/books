@@ -59,35 +59,36 @@ body {
 /* Timeline */
 
 #timeline {
+  --axis-left: 50px;
+  --cards-left: 90px;
   position: relative;
   max-width: 800px;
   margin: 0 auto;
-  padding: 80px 40px 60px;
+  padding: 80px 20px 60px;
 }
 
-/* Central axis */
+#timeline-items {
+  position: relative;
+}
 
 #timeline-axis {
   position: absolute;
-  left: 50%;
-  top: 80px;
-  bottom: 60px;
+  left: var(--axis-left);
+  top: 0;
   width: 1px;
   background: linear-gradient(to bottom, transparent, #2a2a2e 3%, #2a2a2e 97%, transparent);
-  transform: translateX(-0.5px);
 }
 
-/* Year / month markers on the axis */
+/* Axis markers */
 
 .axis-year {
   position: absolute;
-  left: 50%;
+  left: var(--axis-left);
   transform: translateX(-50%);
   color: #555;
   font-size: 13px;
   font-weight: 600;
   letter-spacing: 2px;
-  text-transform: uppercase;
   z-index: 2;
   pointer-events: none;
 }
@@ -114,7 +115,7 @@ body {
 
 .axis-month {
   position: absolute;
-  left: 50%;
+  left: var(--axis-left);
   transform: translateX(-50%);
   z-index: 1;
   pointer-events: none;
@@ -126,9 +127,9 @@ body {
   top: 2px;
   left: 50%;
   transform: translateX(-50%);
-  width: 60px;
+  width: 80px;
   height: 1px;
-  background: linear-gradient(to right, transparent, #2a2a2e, transparent);
+  background: linear-gradient(to right, transparent, #444, transparent);
 }
 
 .axis-month-dot {
@@ -137,65 +138,96 @@ body {
   border-radius: 50%;
   background: #333;
   margin: 0 auto;
-  position: relative;
 }
 
 .axis-month-label {
+  position: absolute;
+  bottom: 8px;
+  right: calc(50% + 20px);
   color: #444;
   font-size: 10px;
+  line-height: 1.8;
   text-align: center;
-  margin-top: 4px;
-  letter-spacing: 0.5px;
+  width: 1em;
+  word-break: break-all;
+}
+
+.axis-month-year {
+  display: block;
+  margin-top: 6px;
+}
+
+.axis-month.past .axis-month-dot { background: #555; }
+.axis-month.past .axis-month-label { color: #666; }
+.axis-month.past::before { background: linear-gradient(to right, transparent, #555, transparent); }
+
+/* Day markers */
+
+.axis-day {
+  position: absolute;
+  left: var(--axis-left);
+  transform: translateX(calc(-100% - 6px));
+  color: #333;
+  font-size: 9px;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.axis-day.past { color: #444; }
+
+/* Now marker */
+
+.axis-now {
+  position: absolute;
+  left: var(--axis-left);
+  transform: translateX(-50%);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.axis-now-line {
+  width: 40px;
+  height: 1px;
+  margin: 0 auto;
+  background: linear-gradient(to right, transparent, #e8c547, transparent);
+  opacity: 0.5;
+}
+
+.axis-now-label {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #e8c547;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-align: center;
+  padding-bottom: 4px;
+  opacity: 0.6;
   white-space: nowrap;
 }
 
-.axis-month.past .axis-month-dot {
-  background: #555;
-}
-
-.axis-month.past .axis-month-label {
-  color: #666;
-}
-
-.axis-month.past::before {
-  background: linear-gradient(to right, transparent, #444, transparent);
-}
-
-/* Timeline items (book entries) */
-
-#timeline-items {
-  position: relative;
-  z-index: 3;
-}
+/* Cards — single column right of axis */
 
 .tl-item {
   position: absolute;
-  width: calc(50% - 40px);
+  left: var(--cards-left);
+  width: calc(100% - var(--cards-left));
   transition: opacity 0.3s;
+  z-index: 1;
 }
 
-.tl-item.left {
-  left: 0;
-  text-align: right;
+.tl-item.dimmed {
+  opacity: 0.08;
+  pointer-events: none;
 }
 
-.tl-item.right {
-  right: 0;
-  text-align: left;
-}
-
-/* Connectors are created dynamically in JS */
-
-
-/* Duration tracks beside the axis */
+/* Duration tracks */
 
 #track-container {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 1;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
 }
 
@@ -204,28 +236,19 @@ body {
   border-radius: 2px;
   background: var(--track-color);
   opacity: 0.35;
-  transition: opacity 0.3s;
+  transition: opacity 0.2s;
 }
 
-/* Small circle at top (end date / finish) */
+.tl-track.highlight {
+  opacity: 0.85;
+  box-shadow: 0 0 10px var(--track-color);
+}
+
+/* Top = end date (big circle) */
 .tl-track::before {
   content: "";
   position: absolute;
-  top: -3px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--track-color);
-  box-shadow: 0 0 6px var(--track-color);
-}
-
-/* Large circle at bottom (start date / beginning) */
-.tl-track::after {
-  content: "";
-  position: absolute;
-  bottom: -5px;
+  top: -5px;
   left: 50%;
   transform: translateX(-50%);
   width: 11px;
@@ -235,7 +258,21 @@ body {
   box-shadow: 0 0 8px var(--track-color);
 }
 
-/* Card */
+/* Bottom = start date (small circle) */
+.tl-track::after {
+  content: "";
+  position: absolute;
+  bottom: -3px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--track-color);
+  box-shadow: 0 0 6px var(--track-color);
+}
+
+/* Card styling */
 
 .tl-card {
   display: block;
@@ -246,15 +283,6 @@ body {
   padding: 12px 16px;
   cursor: pointer;
   transition: all 0.2s;
-  width: 100%;
-}
-
-.tl-item.left .tl-card {
-  border-top-right-radius: 0;
-}
-
-.tl-item.right .tl-card {
-  border-top-left-radius: 0;
 }
 
 .tl-card:hover {
@@ -290,44 +318,13 @@ body {
   border: 1px solid;
 }
 
-.tl-status[data-status="прочитал"] {
-  color: #4aba70;
-  border-color: rgba(74, 186, 112, 0.3);
-}
+.tl-status[data-status="прочитал"] { color: #4aba70; border-color: rgba(74, 186, 112, 0.3); }
+.tl-status[data-status="читаю"] { color: #e8c547; border-color: rgba(232, 197, 71, 0.3); }
+.tl-status[data-status="хочу прочитать"] { color: #c45c5c; border-color: rgba(196, 92, 92, 0.3); }
 
-.tl-status[data-status="читаю"] {
-  color: #e8c547;
-  border-color: rgba(232, 197, 71, 0.3);
-}
-
-.tl-status[data-status="хочу прочитать"] {
-  color: #c45c5c;
-  border-color: rgba(196, 92, 92, 0.3);
-}
-
-.tl-dates {
-  font-size: 11px;
-  color: #555;
-}
-
-.tl-rating {
-  font-size: 12px;
-  color: #e8c547;
-  letter-spacing: 1px;
-}
-
-.tl-categories {
-  font-size: 10px;
-  color: #444;
-  margin-top: 4px;
-}
-
-/* Dimmed state */
-
-.tl-item.dimmed {
-  opacity: 0.08;
-  pointer-events: none;
-}
+.tl-dates { font-size: 11px; color: #555; }
+.tl-rating { font-size: 12px; color: #e8c547; letter-spacing: 1px; }
+.tl-categories { font-size: 10px; color: #444; margin-top: 4px; }
 
 /* No-date section */
 
@@ -352,43 +349,9 @@ body {
   justify-content: center;
 }
 
-#no-date-items .tl-card {
-  width: 240px;
-}
+#no-date-items .tl-card { width: 240px; }
 
-/* "Now" marker */
-
-.axis-now {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 4;
-  pointer-events: none;
-}
-
-.axis-now-line {
-  width: 40px;
-  height: 1px;
-  margin: 0 auto;
-  background: linear-gradient(to right, transparent, #e8c547, transparent);
-  opacity: 0.5;
-}
-
-.axis-now-label {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #e8c547;
-  font-size: 10px;
-  letter-spacing: 1px;
-  text-align: center;
-  padding-bottom: 4px;
-  opacity: 0.6;
-  white-space: nowrap;
-}
-
-/* Book panel (same as site1) */
+/* Book panel */
 
 #book-panel {
   position: fixed;
@@ -407,9 +370,7 @@ body {
   z-index: 10;
 }
 
-#book-panel.open {
-  transform: translateX(0);
-}
+#book-panel.open { transform: translateX(0); }
 
 #panel-close {
   position: absolute;
@@ -424,57 +385,15 @@ body {
   padding: 4px;
 }
 
-#panel-close:hover {
-  color: #fff;
-}
+#panel-close:hover { color: #fff; }
 
-.book-cover {
-  width: 100%;
-  max-height: 300px;
-  object-fit: contain;
-  margin-bottom: 20px;
-  border-radius: 4px;
-}
-
-.book-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #eee;
-  margin-bottom: 8px;
-}
-
-.book-author {
-  font-size: 14px;
-  color: #999;
-  margin-bottom: 16px;
-}
-
-.book-status {
-  font-size: 13px;
-  color: #4aba70;
-  margin-bottom: 8px;
-  text-transform: capitalize;
-}
-
-.book-rating {
-  font-size: 18px;
-  color: #e8c547;
-  margin-bottom: 8px;
-  letter-spacing: 2px;
-}
-
-.book-dates {
-  font-size: 12px;
-  color: #777;
-  margin-bottom: 16px;
-}
-
-.book-notes {
-  font-size: 13px;
-  color: #bbb;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
+.book-cover { width: 100%; max-height: 300px; object-fit: contain; margin-bottom: 20px; border-radius: 4px; }
+.book-title { font-size: 20px; font-weight: 600; color: #eee; margin-bottom: 8px; }
+.book-author { font-size: 14px; color: #999; margin-bottom: 16px; }
+.book-status { font-size: 13px; color: #4aba70; margin-bottom: 8px; }
+.book-rating { font-size: 18px; color: #e8c547; margin-bottom: 8px; letter-spacing: 2px; }
+.book-dates { font-size: 12px; color: #777; margin-bottom: 16px; }
+.book-notes { font-size: 13px; color: #bbb; line-height: 1.6; margin-bottom: 20px; }
 
 .book-quotes blockquote {
   font-size: 13px;
@@ -488,14 +407,9 @@ body {
 
 @media (max-width: 640px) {
   #timeline {
-    padding: 80px 16px 60px;
+    --axis-left: 30px;
+    --cards-left: 55px;
+    padding: 80px 10px 60px;
   }
-
-  .tl-item {
-    width: calc(50% - 24px);
-  }
-
-  #book-panel {
-    width: 100vw;
-  }
+  #book-panel { width: 100vw; }
 }

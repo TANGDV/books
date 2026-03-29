@@ -8,9 +8,17 @@
   };
   var MONTH_NAMES = [
     "янв", "фев", "мар", "апр", "май", "июн",
-    "июл", "авг", "сен", "окт", "ноя", "дек",
+    "��юл", "авг", "сен", "окт", "ноя", "дек",
+  ];
+  var MONTH_NAMES_FULL = [
+    "январь", "февраль", "март", "апрель", "май", "июнь",
+    "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
   ];
   var BASE_PPD = 8;
+  var GAP = 14;
+  var TRACK_WIDTH = 5;
+  var TRACK_GAP = 8;
+  var TRACK_OFFSET = 8;
 
   var timelineEl = document.getElementById("timeline");
   var axisEl = document.getElementById("timeline-axis");
@@ -28,16 +36,79 @@
   }
 
   function daysBetween(a, b) {
-    return Math.round((b - a) / (1000 * 60 * 60 * 24));
+    return Math.round((b - a) / 86400000);
   }
 
   function escapeHtml(str) {
     if (!str) return "";
-    return String(str)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function formatDate(str) {
+    if (!str) return "";
+    var p = str.split("-");
+    if (p.length < 2) return str;
+    return +p[2] + " " + MONTH_NAMES[+p[1] - 1] + " " + p[0];
+  }
+
+  // --- Card creation ---
+
+  function createCard(book) {
+    var card = document.createElement("div");
+    card.className = "tl-card";
+
+    var title = document.createElement("div");
+    title.className = "tl-title";
+    title.textContent = book.title;
+    card.appendChild(title);
+
+    var author = document.createElement("div");
+    author.className = "tl-author";
+    author.textContent = book.author;
+    card.appendChild(author);
+
+    var meta = document.createElement("div");
+    meta.className = "tl-meta";
+
+    if (book.status) {
+      var s = document.createElement("span");
+      s.className = "tl-status";
+      s.setAttribute("data-status", book.status);
+      s.textContent = book.status;
+      meta.appendChild(s);
+    }
+
+    var dates = document.createElement("span");
+    dates.className = "tl-dates";
+    var dStr = formatDate(book.startDate);
+    if (book.endDate) dStr += " \u2014 " + formatDate(book.endDate);
+    dates.textContent = dStr;
+    meta.appendChild(dates);
+
+    if (book.rating) {
+      var r = document.createElement("span");
+      r.className = "tl-rating";
+      var stars = "";
+      for (var i = 1; i <= 5; i++) stars += i <= book.rating ? "\u2605" : "\u2606";
+      r.textContent = stars;
+      meta.appendChild(r);
+    }
+
+    card.appendChild(meta);
+
+    if (book.categories && book.categories.length) {
+      var cats = document.createElement("div");
+      cats.className = "tl-categories";
+      cats.textContent = book.categories.join(" / ");
+      card.appendChild(cats);
+    }
+
+    card.addEventListener("click", function (e) {
+      e.stopPropagation();
+      showBookPanel(book);
+    });
+
+    return card;
   }
 
   // --- Build timeline ---
@@ -46,557 +117,374 @@
     if (typeof BOOKS === "undefined" || !BOOKS.length) return;
 
     var today = new Date();
-    var GAP = 14;
-
-    var withDate = [];
+    var entries = [];
     var withoutDate = [];
 
     for (var i = 0; i < BOOKS.length; i++) {
       var b = BOOKS[i];
       var sd = parseDate(b.startDate);
       if (sd) {
-        withDate.push({ book: b, start: sd, end: parseDate(b.endDate) });
+        var ed = parseDate(b.endDate);
+        entries.push({
+          book: b,
+          start: sd,
+          end: ed,
+          anchor: ed || (b.status === "читаю" ? today : sd),
+        });
       } else {
         withoutDate.push(b);
       }
     }
 
-    if (withDate.length === 0) return;
+    if (!entries.length) return;
 
-    // Compute anchor date (top circle) for each entry
-    for (var i = 0; i < withDate.length; i++) {
-      var e = withDate[i];
-      e.anchor = e.end || (e.book.status === "читаю" ? today : e.start);
-    }
-
-    // Sort newest anchor first
-    withDate.sort(function (a, b) { return b.anchor - a.anchor; });
+    // Sort: "читаю" always on top, then by anchor descending
+    entries.sort(function (a, b) {
+      var aR = a.book.status === "читаю" ? 1 : 0;
+      var bR = b.book.status === "читаю" ? 1 : 0;
+      if (aR !== bR) return bR - aR;
+      return b.anchor - a.anchor;
+    });
 
     // Date range
-    var earliest = new Date(withDate[0].start);
-    var latest = new Date(withDate[0].start);
-    for (var i = 0; i < withDate.length; i++) {
-      if (withDate[i].start < earliest) earliest = new Date(withDate[i].start);
-      if (withDate[i].end && withDate[i].end > latest) latest = new Date(withDate[i].end);
+    var earliest = entries[0].start;
+    var latest = entries[0].anchor;
+    for (var i = 1; i < entries.length; i++) {
+      if (entries[i].start < earliest) earliest = entries[i].start;
+      if (entries[i].anchor > latest) latest = entries[i].anchor;
     }
-    if (today > latest) latest = new Date(today);
-
-    // Padding
+    if (today > latest) latest = today;
+    var earliestReal = new Date(earliest);
     latest = new Date(latest.getTime() + 7 * 86400000);
     earliest = new Date(earliest.getTime() - 14 * 86400000);
 
     var totalDays = daysBetween(earliest, latest);
 
-    // dayIdx: latest=0 (top of page), earliest=totalDays (bottom)
     function dayIdx(d) {
       var di = daysBetween(d, latest);
-      if (di < 0) return 0;
-      if (di > totalDays) return totalDays;
-      return di;
+      return Math.max(0, Math.min(di, totalDays));
     }
 
-    // --- Pass 1: create cards (hidden), measure ---
-    var placedItems = [];
+    // Create and measure cards
+    var items = [];
+    for (var i = 0; i < entries.length; i++) {
+      var el = document.createElement("div");
+      el.className = "tl-item";
+      el.style.visibility = "hidden";
+      el.setAttribute("data-status", entries[i].book.status || "");
+      el.appendChild(createCard(entries[i].book));
+      itemsEl.appendChild(el);
+      items.push({ el: el, entry: entries[i], h: 0, y: 0 });
+    }
+    for (var i = 0; i < items.length; i++) {
+      items[i].h = items[i].el.getBoundingClientRect().height;
+    }
 
-    for (var i = 0; i < withDate.length; i++) {
-      var entry = withDate[i];
-      var book = entry.book;
-
-      var item = document.createElement("div");
-      item.className = "tl-item left";
-      item.style.top = "0px";
-      item.style.visibility = "hidden";
-      item.setAttribute("data-status", book.status || "");
-      item._bookData = book;
-      item._entry = entry;
-
-      var card = document.createElement("div");
-      card.className = "tl-card";
-
-      var titleEl = document.createElement("div");
-      titleEl.className = "tl-title";
-      titleEl.textContent = book.title;
-      card.appendChild(titleEl);
-
-      var authorEl = document.createElement("div");
-      authorEl.className = "tl-author";
-      authorEl.textContent = book.author;
-      card.appendChild(authorEl);
-
-      var meta = document.createElement("div");
-      meta.className = "tl-meta";
-
-      if (book.status) {
-        var statusEl = document.createElement("span");
-        statusEl.className = "tl-status";
-        statusEl.setAttribute("data-status", book.status);
-        statusEl.textContent = book.status;
-        meta.appendChild(statusEl);
+    // Group cards by dayIdx (cards on the same day form a group)
+    var groups = [];
+    var curGroup = null;
+    for (var i = 0; i < items.length; i++) {
+      var di = dayIdx(items[i].entry.anchor);
+      if (!curGroup || curGroup.di !== di) {
+        curGroup = { di: di, items: [], totalH: 0 };
+        groups.push(curGroup);
       }
-
-      var datesEl = document.createElement("span");
-      datesEl.className = "tl-dates";
-      var dStr = formatDate(book.startDate);
-      if (book.endDate) dStr += " \u2014 " + formatDate(book.endDate);
-      datesEl.textContent = dStr;
-      meta.appendChild(datesEl);
-
-      if (book.rating) {
-        var ratingEl = document.createElement("span");
-        ratingEl.className = "tl-rating";
-        var stars = "";
-        for (var s = 1; s <= 5; s++) {
-          stars += s <= book.rating ? "\u2605" : "\u2606";
-        }
-        ratingEl.textContent = stars;
-        meta.appendChild(ratingEl);
-      }
-
-      card.appendChild(meta);
-
-      if (book.categories && book.categories.length > 0) {
-        var cats = document.createElement("div");
-        cats.className = "tl-categories";
-        cats.textContent = book.categories.join(" / ");
-        card.appendChild(cats);
-      }
-
-      card.addEventListener("click", (function (b) {
-        return function (e) {
-          e.stopPropagation();
-          showBookPanel(b);
-        };
-      })(book));
-
-      item.appendChild(card);
-      itemsEl.appendChild(item);
-      placedItems.push(item);
+      curGroup.items.push(items[i]);
+      curGroup.totalH += items[i].h + GAP;
     }
 
-    // Measure card heights
-    for (var i = 0; i < placedItems.length; i++) {
-      placedItems[i]._measuredH = placedItems[i].getBoundingClientRect().height;
-    }
-
-    // --- Assign sides (greedy with base scale) ---
-    var baseSideBot = { left: 0, right: 0 };
-    for (var i = 0; i < placedItems.length; i++) {
-      var item = placedItems[i];
-      var baseY = dayIdx(item._entry.anchor) * BASE_PPD;
-      var side = baseSideBot.left <= baseSideBot.right ? "left" : "right";
-      item._side = side;
-      baseSideBot[side] = Math.max(baseSideBot[side], baseY) + item._measuredH + GAP;
-    }
-
-    // --- Adaptive day scale ---
+    // Adaptive day scale — stretch time so all groups fit on the axis
     var dayScale = new Array(totalDays + 1);
     for (var d = 0; d <= totalDays; d++) dayScale[d] = BASE_PPD;
 
-    var leftCards = [];
-    var rightCards = [];
-    for (var i = 0; i < placedItems.length; i++) {
-      if (placedItems[i]._side === "left") leftCards.push(placedItems[i]);
-      else rightCards.push(placedItems[i]);
-    }
-
-    function applyConstraints(cards) {
-      for (var i = 0; i < cards.length; i++) {
-        var di1 = dayIdx(cards[i]._entry.anchor);
-        var di2 = (i + 1 < cards.length) ? dayIdx(cards[i + 1]._entry.anchor) : totalDays;
-        var numDays = di2 - di1;
-        if (numDays <= 0) numDays = 1;
-        var neededPpd = (cards[i]._measuredH + GAP) / numDays;
-        if (neededPpd > BASE_PPD) {
-          for (var d = di1; d < di2; d++) {
-            if (dayScale[d] < neededPpd) dayScale[d] = neededPpd;
-          }
-        }
+    // Pair-wise estimate between groups
+    for (var g = 0; g < groups.length - 1; g++) {
+      var di1 = groups[g].di;
+      var di2 = groups[g + 1].di;
+      var span = Math.max(di2 - di1, 1);
+      var needed = groups[g].totalH / span;
+      for (var d = di1; d < di1 + span && d <= totalDays; d++) {
+        if (dayScale[d] < needed) dayScale[d] = needed;
       }
     }
 
-    applyConstraints(leftCards);
-    applyConstraints(rightCards);
-
-    // --- Cumulative Y from day scale ---
+    // Build cumulative Y
     var cumY = new Array(totalDays + 2);
     cumY[0] = 0;
-    for (var d = 0; d <= totalDays; d++) {
-      cumY[d + 1] = cumY[d] + dayScale[d];
+    for (var d = 0; d <= totalDays; d++) cumY[d + 1] = cumY[d] + dayScale[d];
+
+    // Resolve remaining overlaps by stretching the scale
+    var bottom = 0;
+    for (var g = 0; g < groups.length; g++) {
+      var di = groups[g].di;
+      if (cumY[di] < bottom) {
+        var prevDi = g > 0 ? groups[g - 1].di : 0;
+        var span = Math.max(di - prevDi, 1);
+        var extra = (bottom - cumY[di]) / span;
+        for (var d = prevDi; d < prevDi + span && d <= totalDays; d++) {
+          dayScale[d] += extra;
+        }
+        for (var d = prevDi; d <= totalDays; d++) {
+          cumY[d + 1] = cumY[d] + dayScale[d];
+        }
+      }
+      bottom = cumY[di] + groups[g].totalH;
     }
+
+    // Ensure last group fits within the scale
+    var lastG = groups[groups.length - 1];
+    var lastEnd = cumY[lastG.di] + lastG.totalH;
+    if (lastEnd > cumY[totalDays + 1]) {
+      var span = Math.max(totalDays - lastG.di, 1);
+      var extra = (lastEnd - cumY[totalDays + 1]) / span;
+      for (var d = lastG.di; d <= totalDays; d++) dayScale[d] += extra;
+      for (var d = lastG.di; d <= totalDays; d++) cumY[d + 1] = cumY[d] + dayScale[d];
+    }
+
     var totalHeight = cumY[totalDays + 1];
+    function dateToY(d) { return cumY[dayIdx(d)]; }
 
-    function dateToY(d) {
-      var di = dayIdx(d);
-      return cumY[di];
+    // Place cards — within groups, stack sequentially
+    for (var g = 0; g < groups.length; g++) {
+      var y = cumY[groups[g].di];
+      for (var j = 0; j < groups[g].items.length; j++) {
+        var item = groups[g].items[j];
+        item.y = y;
+        item.el.style.top = y + "px";
+        item.el.style.visibility = "";
+        y += item.h + GAP;
+      }
     }
 
-    // Set container heights
     itemsEl.style.height = totalHeight + "px";
-    axisEl.style.top = "80px";
     axisEl.style.height = totalHeight + "px";
 
-    // --- Axis markers at month boundaries ---
-    var rangeStartMonth = new Date(earliest.getFullYear(), earliest.getMonth(), 1);
-    var rangeEndMonth = new Date(latest.getFullYear(), latest.getMonth() + 1, 1);
-    var cur = new Date(rangeStartMonth);
-    while (cur <= rangeEndMonth) {
-      var yy = cur.getFullYear();
-      var mm = cur.getMonth();
-      var boundaryY = dateToY(cur);
+    // Axis markers
+    var cur = new Date(earliestReal.getFullYear(), earliestReal.getMonth(), 1);
+    var endMonth = new Date(latest.getFullYear(), latest.getMonth() + 1, 1);
 
-      if (mm === 0) {
-        var yearEl = document.createElement("div");
-        yearEl.className = "axis-year";
-        yearEl.style.top = boundaryY + "px";
-        var span = document.createElement("span");
-        span.textContent = yy;
-        yearEl.appendChild(span);
-        itemsEl.appendChild(yearEl);
-      } else {
-        var monthEl = document.createElement("div");
-        monthEl.className = "axis-month" + (cur <= today ? " past" : "");
-        monthEl.style.top = boundaryY + "px";
-        var dot = document.createElement("div");
-        dot.className = "axis-month-dot";
-        monthEl.appendChild(dot);
-        var label = document.createElement("div");
-        label.className = "axis-month-label";
-        label.textContent = MONTH_NAMES[mm];
-        monthEl.appendChild(label);
-        itemsEl.appendChild(monthEl);
+    while (cur <= endMonth) {
+      var y = dateToY(cur);
+      var el = document.createElement("div");
+
+      el.className = "axis-month" + (cur <= today ? " past" : "");
+      el.style.top = y + "px";
+      var dot = document.createElement("div");
+      dot.className = "axis-month-dot";
+      el.appendChild(dot);
+      var label = document.createElement("div");
+      label.className = "axis-month-label";
+      label.appendChild(document.createTextNode(MONTH_NAMES_FULL[cur.getMonth()]));
+      var yearSpan = document.createElement("span");
+      yearSpan.className = "axis-month-year";
+      yearSpan.textContent = cur.getFullYear();
+      label.appendChild(yearSpan);
+      el.appendChild(label);
+
+      // Day markers within this month: 5, 10, 15, 20, 25
+      var daysInMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+      for (var dd = 5; dd <= daysInMonth; dd += 5) {
+        var dayDate = new Date(cur.getFullYear(), cur.getMonth(), dd);
+        if (dayDate < earliestReal || dayDate > latest) continue;
+        var dayY = dateToY(dayDate);
+        var dayEl = document.createElement("div");
+        dayEl.className = "axis-day" + (dayDate <= today ? " past" : "");
+        dayEl.style.top = dayY + "px";
+        dayEl.textContent = dd;
+        itemsEl.appendChild(dayEl);
       }
 
-      cur = new Date(yy, mm + 1, 1);
+      itemsEl.appendChild(el);
+      cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
     }
 
     // "Now" marker
     var nowY = dateToY(today);
     if (nowY >= 0 && nowY <= totalHeight) {
-      var nowEl = document.createElement("div");
-      nowEl.className = "axis-now";
-      nowEl.style.top = nowY + "px";
-      var nowLine = document.createElement("div");
-      nowLine.className = "axis-now-line";
-      nowEl.appendChild(nowLine);
-      var nowLabel = document.createElement("div");
-      nowLabel.className = "axis-now-label";
-      nowLabel.textContent = "сейчас";
-      nowEl.appendChild(nowLabel);
-      itemsEl.appendChild(nowEl);
+      var el = document.createElement("div");
+      el.className = "axis-now";
+      el.style.top = nowY + "px";
+      var line = document.createElement("div");
+      line.className = "axis-now-line";
+      el.appendChild(line);
+      itemsEl.appendChild(el);
     }
 
-    // --- Pass 2: Place cards with collision resolution ---
-    var sideBottom = { left: 0, right: 0 };
-    for (var i = 0; i < placedItems.length; i++) {
-      var item = placedItems[i];
-      var y = dateToY(item._entry.anchor);
-      var side = item._side;
-      if (y < sideBottom[side]) {
-        y = sideBottom[side];
-      }
-      sideBottom[side] = y + item._measuredH + GAP;
-      item.className = "tl-item " + side;
-      item.style.top = y + "px";
-      item.style.visibility = "";
-      item._placedY = y;
-    }
-
-    // Extend container if collision resolution pushed cards beyond totalHeight
-    var maxBottom = Math.max(sideBottom.left, sideBottom.right);
-    if (maxBottom > totalHeight) {
-      totalHeight = maxBottom;
-      itemsEl.style.height = totalHeight + "px";
-      axisEl.style.height = totalHeight + "px";
-    }
-
-    // --- Duration tracks (per-side lane assignment) ---
-    var LANE_WIDTH = 4;
-    var LANE_GAP = 6;
-    var TRACK_OFFSET = 10;
-    var leftTracks = [];
-    var rightTracks = [];
-
-    for (var i = 0; i < placedItems.length; i++) {
-      var item = placedItems[i];
-      var entry = item._entry;
-      if (!entry.end && entry.book.status !== "читаю") continue;
-      var endDate = entry.end || today;
-      var topY = dateToY(endDate);
-      var botY = dateToY(entry.start);
-      if (botY - topY < 2) botY = topY + 2;
-      var t = {
-        topY: topY, botY: botY,
-        color: STATUS_COLORS[entry.book.status] || "#666",
-        status: entry.book.status || "",
-        side: item._side,
-        lane: 0,
-      };
-      item._track = t;
-      if (item._side === "left") leftTracks.push(t);
-      else rightTracks.push(t);
-    }
-
-    function assignLanes(list) {
-      list.sort(function (a, b) { return a.topY - b.topY; });
-      var ends = [];
-      for (var i = 0; i < list.length; i++) {
-        var t = list[i];
-        var assigned = -1;
-        for (var l = 0; l < ends.length; l++) {
-          if (ends[l] <= t.topY) { assigned = l; break; }
-        }
-        if (assigned === -1) { assigned = ends.length; ends.push(0); }
-        t.lane = assigned;
-        ends[assigned] = t.botY + 4;
-      }
-    }
-
-    assignLanes(leftTracks);
-    assignLanes(rightTracks);
-
-    // Render tracks
+    // Duration tracks
+    var axisLeft = parseInt(getComputedStyle(timelineEl).getPropertyValue("--axis-left")) || 50;
     var trackContainer = document.createElement("div");
     trackContainer.id = "track-container";
     itemsEl.appendChild(trackContainer);
 
-    var allTracks = leftTracks.concat(rightTracks);
-    for (var i = 0; i < allTracks.length; i++) {
-      var t = allTracks[i];
-      var h = t.botY - t.topY;
-      var step = TRACK_OFFSET + t.lane * (LANE_WIDTH + LANE_GAP);
-      var offset = (t.side === "right") ? step : -step;
+    var tracks = [];
+    for (var i = 0; i < items.length; i++) {
+      var e = items[i].entry;
+      if (!e.end && e.book.status !== "читаю") continue;
+      var topY = dateToY(e.end || today);
+      var botY = dateToY(e.start);
+      if (botY - topY < 16) botY = topY + 16;
+      tracks.push({
+        topY: topY, botY: botY,
+        color: STATUS_COLORS[e.book.status] || "#666",
+        status: e.book.status || "",
+        lane: 0,
+        itemIdx: i,
+      });
+    }
+
+    // Lane assignment for overlapping tracks
+    tracks.sort(function (a, b) { return a.topY - b.topY; });
+    var laneEnds = [];
+    for (var i = 0; i < tracks.length; i++) {
+      var t = tracks[i];
+      var lane = -1;
+      for (var l = 0; l < laneEnds.length; l++) {
+        if (laneEnds[l] <= t.topY) { lane = l; break; }
+      }
+      if (lane === -1) { lane = laneEnds.length; laneEnds.push(0); }
+      t.lane = lane;
+      laneEnds[lane] = t.botY + 4;
+    }
+
+    for (var i = 0; i < tracks.length; i++) {
+      var t = tracks[i];
       var el = document.createElement("div");
       el.className = "tl-track";
       el.setAttribute("data-status", t.status);
       el.style.top = t.topY + "px";
-      el.style.height = h + "px";
-      el.style.left = "calc(50% + " + (offset - LANE_WIDTH / 2) + "px)";
-      el.style.width = LANE_WIDTH + "px";
+      el.style.height = (t.botY - t.topY) + "px";
+      el.style.left = (axisLeft + TRACK_OFFSET + t.lane * (TRACK_WIDTH + TRACK_GAP)) + "px";
+      el.style.width = TRACK_WIDTH + "px";
       el.style.setProperty("--track-color", t.color);
       trackContainer.appendChild(el);
+      items[t.itemIdx].trackEl = el;
     }
 
-    // --- Connector lines from cards to their tracks ---
-    var isMobile = window.innerWidth <= 640;
-    var itemGap = isMobile ? 24 : 40;
-
-    for (var i = 0; i < placedItems.length; i++) {
-      var item = placedItems[i];
-      var cardY = item._placedY;
-      var side = item._side;
-      var track = item._track;
-
-      var connWidth;
-      if (track) {
-        var step = TRACK_OFFSET + track.lane * (LANE_WIDTH + LANE_GAP);
-        connWidth = itemGap - step - LANE_WIDTH / 2;
-      } else {
-        connWidth = itemGap;
+    // Push cards right if tracks overlap at their vertical range
+    var defaultLeft = parseInt(getComputedStyle(timelineEl).getPropertyValue("--cards-left")) || 90;
+    var TRACK_CARD_PAD = 10;
+    for (var i = 0; i < items.length; i++) {
+      var cardTop = items[i].y;
+      var cardBot = items[i].y + items[i].h;
+      var maxRight = 0;
+      for (var j = 0; j < tracks.length; j++) {
+        if (tracks[j].topY < cardBot && tracks[j].botY > cardTop) {
+          var right = axisLeft + TRACK_OFFSET + tracks[j].lane * (TRACK_WIDTH + TRACK_GAP) + TRACK_WIDTH;
+          if (right > maxRight) maxRight = right;
+        }
       }
-      if (connWidth <= 0) continue;
-
-      var conn = document.createElement("div");
-      conn.className = "tl-connector";
-      conn.setAttribute("data-status", item.getAttribute("data-status") || "");
-      conn.style.position = "absolute";
-      conn.style.height = "1px";
-      conn.style.width = connWidth + "px";
-      conn.style.background = "#2a2a2e";
-      conn.style.top = cardY + "px";
-
-      if (side === "left") {
-        conn.style.left = "calc(50% - " + itemGap + "px)";
-      } else {
-        conn.style.left = "calc(50% + " + (itemGap - connWidth) + "px)";
+      if (maxRight + TRACK_CARD_PAD > defaultLeft) {
+        var needed = maxRight + TRACK_CARD_PAD;
+        items[i].el.style.left = needed + "px";
+        items[i].el.style.width = "calc(100% - " + needed + "px)";
       }
-
-      itemsEl.appendChild(conn);
     }
 
-    // --- No-date books ---
-    if (withoutDate.length > 0) {
+    // Hover: highlight track when hovering its card
+    for (var i = 0; i < items.length; i++) {
+      (function (item) {
+        item.el.addEventListener("mouseenter", function () {
+          if (item.trackEl) item.trackEl.classList.add("highlight");
+        });
+        item.el.addEventListener("mouseleave", function () {
+          if (item.trackEl) item.trackEl.classList.remove("highlight");
+        });
+      })(items[i]);
+    }
+
+    // No-date books
+    if (withoutDate.length) {
       var section = document.createElement("div");
       section.id = "no-date-section";
 
-      var label = document.createElement("div");
-      label.id = "no-date-label";
-      label.textContent = "БЕЗ ДАТЫ";
-      section.appendChild(label);
+      var lbl = document.createElement("div");
+      lbl.id = "no-date-label";
+      lbl.textContent = "\u0411\u0415\u0417 \u0414\u0410\u0422\u042B";
+      section.appendChild(lbl);
 
       var container = document.createElement("div");
       container.id = "no-date-items";
-
       for (var i = 0; i < withoutDate.length; i++) {
-        var book = withoutDate[i];
-        var card = document.createElement("div");
-        card.className = "tl-card";
-        card.setAttribute("data-status", book.status || "");
-
-        var titleEl = document.createElement("div");
-        titleEl.className = "tl-title";
-        titleEl.textContent = book.title;
-        card.appendChild(titleEl);
-
-        var authorEl = document.createElement("div");
-        authorEl.className = "tl-author";
-        authorEl.textContent = book.author;
-        card.appendChild(authorEl);
-
-        if (book.status) {
-          var statusEl = document.createElement("span");
-          statusEl.className = "tl-status";
-          statusEl.setAttribute("data-status", book.status);
-          statusEl.textContent = book.status;
-          card.appendChild(statusEl);
-        }
-
-        card.addEventListener("click", (function (b) {
-          return function (e) {
-            e.stopPropagation();
-            showBookPanel(b);
-          };
-        })(book));
-
+        var card = createCard(withoutDate[i]);
+        card.setAttribute("data-status", withoutDate[i].status || "");
         container.appendChild(card);
       }
-
       section.appendChild(container);
       timelineEl.appendChild(section);
     }
-  }
-
-  function formatDate(str) {
-    if (!str) return "";
-    var parts = str.split("-");
-    if (parts.length < 2) return str;
-    var m = +parts[1] - 1;
-    return +parts[2] + " " + MONTH_NAMES[m] + " " + parts[0];
   }
 
   // --- Book panel ---
 
   function showBookPanel(data) {
     var html = "";
-
     if (data.cover) {
       html += '<img class="book-cover" src="' + escapeHtml(data.cover) + '" alt="' + escapeHtml(data.title) + '">';
     }
-
     html += '<h2 class="book-title">' + escapeHtml(data.title) + "</h2>";
     html += '<p class="book-author">' + escapeHtml(data.author) + "</p>";
-
-    if (data.status) {
-      html += '<p class="book-status">' + escapeHtml(data.status) + "</p>";
-    }
-
+    if (data.status) html += '<p class="book-status">' + escapeHtml(data.status) + "</p>";
     if (data.rating) {
       var stars = "";
-      for (var i = 1; i <= 5; i++) {
-        stars += i <= data.rating ? "\u2605" : "\u2606";
-      }
+      for (var i = 1; i <= 5; i++) stars += i <= data.rating ? "\u2605" : "\u2606";
       html += '<p class="book-rating">' + stars + "</p>";
     }
-
     if (data.startDate || data.endDate) {
-      var dates = "";
-      if (data.startDate) dates += data.startDate;
-      if (data.startDate && data.endDate) dates += " \u2014 ";
-      if (data.endDate) dates += data.endDate;
-      html += '<p class="book-dates">' + escapeHtml(dates) + "</p>";
+      var d = (data.startDate || "") + (data.startDate && data.endDate ? " \u2014 " : "") + (data.endDate || "");
+      html += '<p class="book-dates">' + escapeHtml(d) + "</p>";
     }
-
-    if (data.notes) {
-      html += '<p class="book-notes">' + escapeHtml(data.notes) + "</p>";
-    }
-
-    if (data.quotes && data.quotes.length > 0) {
+    if (data.notes) html += '<p class="book-notes">' + escapeHtml(data.notes) + "</p>";
+    if (data.quotes && data.quotes.length) {
       html += '<div class="book-quotes">';
       for (var i = 0; i < data.quotes.length; i++) {
         html += "<blockquote>" + escapeHtml(data.quotes[i]) + "</blockquote>";
       }
       html += "</div>";
     }
-
     panelContent.innerHTML = html;
     panel.classList.add("open");
   }
 
-  function closePanel() {
-    panel.classList.remove("open");
-  }
+  function closePanel() { panel.classList.remove("open"); }
 
   panelClose.addEventListener("click", closePanel);
-
   document.addEventListener("click", function (e) {
     if (panel.classList.contains("open") && !panel.contains(e.target) && !e.target.closest(".tl-card")) {
       closePanel();
     }
   });
-
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") closePanel();
   });
 
   // --- Filters ---
 
-  var activeFilter = "";
   var filterButtons = document.querySelectorAll(".filter-btn");
 
   function applyFilter(status) {
-    activeFilter = status;
     var items = document.querySelectorAll(".tl-item");
     for (var i = 0; i < items.length; i++) {
-      var el = items[i];
-      if (!status || el.getAttribute("data-status") === status) {
-        el.classList.remove("dimmed");
-      } else {
-        el.classList.add("dimmed");
-      }
+      items[i].classList.toggle("dimmed", !!status && items[i].getAttribute("data-status") !== status);
     }
-    // Connectors
-    var connectors = document.querySelectorAll(".tl-connector");
-    for (var i = 0; i < connectors.length; i++) {
-      var el = connectors[i];
-      if (!status || el.getAttribute("data-status") === status) {
-        el.style.opacity = "";
-      } else {
-        el.style.opacity = "0.08";
-      }
-    }
-    // Tracks
     var tracks = document.querySelectorAll(".tl-track");
     for (var i = 0; i < tracks.length; i++) {
-      var el = tracks[i];
-      if (!status || el.getAttribute("data-status") === status) {
-        el.style.opacity = "";
-      } else {
-        el.style.opacity = "0.03";
-      }
+      tracks[i].style.opacity = (!status || tracks[i].getAttribute("data-status") === status) ? "" : "0.03";
     }
-    // No-date cards
-    var noDateCards = document.querySelectorAll("#no-date-items .tl-card");
-    for (var i = 0; i < noDateCards.length; i++) {
-      var el = noDateCards[i];
-      if (!status || el.getAttribute("data-status") === status) {
-        el.style.opacity = "1";
-        el.style.pointerEvents = "all";
-      } else {
-        el.style.opacity = "0.08";
-        el.style.pointerEvents = "none";
-      }
+    var noDate = document.querySelectorAll("#no-date-items .tl-card");
+    for (var i = 0; i < noDate.length; i++) {
+      var match = !status || noDate[i].getAttribute("data-status") === status;
+      noDate[i].style.opacity = match ? "1" : "0.08";
+      noDate[i].style.pointerEvents = match ? "all" : "none";
     }
   }
 
   for (var i = 0; i < filterButtons.length; i++) {
     filterButtons[i].addEventListener("click", function (e) {
-      for (var j = 0; j < filterButtons.length; j++) {
-        filterButtons[j].classList.remove("active");
-      }
+      for (var j = 0; j < filterButtons.length; j++) filterButtons[j].classList.remove("active");
       e.currentTarget.classList.add("active");
       applyFilter(e.currentTarget.getAttribute("data-status"));
     });
   }
 
-  // --- Init ---
   buildTimeline();
 })();
