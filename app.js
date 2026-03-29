@@ -380,6 +380,34 @@
       }
     }
 
+    // Re-measure cards that got narrower and fix vertical placement
+    var needsFixup = false;
+    for (var i = 0; i < items.length; i++) {
+      var newH = items[i].el.getBoundingClientRect().height;
+      if (newH > items[i].h + 0.5) {
+        items[i].h = newH;
+        needsFixup = true;
+      }
+    }
+    if (needsFixup) {
+      for (var g = 0; g < groups.length; g++) {
+        var y = cumY[groups[g].di];
+        for (var j = 0; j < groups[g].items.length; j++) {
+          var item = groups[g].items[j];
+          item.y = y;
+          item.el.style.top = y + "px";
+          y += item.h + GAP;
+        }
+      }
+      var lastItem = items[items.length - 1];
+      var newTotal = lastItem.y + lastItem.h + GAP;
+      if (newTotal > totalHeight) {
+        totalHeight = newTotal;
+        itemsEl.style.height = totalHeight + "px";
+        axisEl.style.height = totalHeight + "px";
+      }
+    }
+
     // Hover: highlight track when hovering its card
     for (var i = 0; i < items.length; i++) {
       (function (item) {
