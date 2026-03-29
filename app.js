@@ -23,9 +23,6 @@
   var timelineEl = document.getElementById("timeline");
   var axisEl = document.getElementById("timeline-axis");
   var itemsEl = document.getElementById("timeline-items");
-  var panel = document.getElementById("book-panel");
-  var panelClose = document.getElementById("panel-close");
-  var panelContent = document.getElementById("panel-content");
 
   // --- Helpers ---
 
@@ -37,11 +34,6 @@
 
   function daysBetween(a, b) {
     return Math.round((b - a) / 86400000);
-  }
-
-  function escapeHtml(str) {
-    if (!str) return "";
-    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   }
 
   function formatDate(str) {
@@ -102,11 +94,6 @@
       cats.textContent = book.categories.join(" / ");
       card.appendChild(cats);
     }
-
-    card.addEventListener("click", function (e) {
-      e.stopPropagation();
-      showBookPanel(book);
-    });
 
     return card;
   }
@@ -443,49 +430,6 @@
       timelineEl.appendChild(section);
     }
   }
-
-  // --- Book panel ---
-
-  function showBookPanel(data) {
-    var html = "";
-    if (data.cover) {
-      html += '<img class="book-cover" src="' + escapeHtml(data.cover) + '" alt="' + escapeHtml(data.title) + '">';
-    }
-    html += '<h2 class="book-title">' + escapeHtml(data.title) + "</h2>";
-    html += '<p class="book-author">' + escapeHtml(data.author) + "</p>";
-    if (data.status) html += '<p class="book-status">' + escapeHtml(data.status) + "</p>";
-    if (data.rating) {
-      var stars = "";
-      for (var i = 1; i <= 5; i++) stars += i <= data.rating ? "\u2605" : "\u2606";
-      html += '<p class="book-rating">' + stars + "</p>";
-    }
-    if (data.startDate || data.endDate) {
-      var d = (data.startDate || "") + (data.startDate && data.endDate ? " \u2014 " : "") + (data.endDate || "");
-      html += '<p class="book-dates">' + escapeHtml(d) + "</p>";
-    }
-    if (data.notes) html += '<p class="book-notes">' + escapeHtml(data.notes) + "</p>";
-    if (data.quotes && data.quotes.length) {
-      html += '<div class="book-quotes">';
-      for (var i = 0; i < data.quotes.length; i++) {
-        html += "<blockquote>" + escapeHtml(data.quotes[i]) + "</blockquote>";
-      }
-      html += "</div>";
-    }
-    panelContent.innerHTML = html;
-    panel.classList.add("open");
-  }
-
-  function closePanel() { panel.classList.remove("open"); }
-
-  panelClose.addEventListener("click", closePanel);
-  document.addEventListener("click", function (e) {
-    if (panel.classList.contains("open") && !panel.contains(e.target) && !e.target.closest(".tl-card")) {
-      closePanel();
-    }
-  });
-  document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closePanel();
-  });
 
   // --- Filters ---
 
