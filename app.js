@@ -416,7 +416,7 @@
 
       var lbl = document.createElement("div");
       lbl.id = "no-date-label";
-      lbl.textContent = "\u0411\u0415\u0417 \u0414\u0410\u0422\u042B";
+      lbl.textContent = "\u0425\u041E\u0427\u0423 \u041F\u0420\u041E\u0427\u0418\u0422\u0410\u0422\u042C";
       section.appendChild(lbl);
 
       var container = document.createElement("div");
@@ -456,7 +456,14 @@
     filterButtons[i].addEventListener("click", function (e) {
       for (var j = 0; j < filterButtons.length; j++) filterButtons[j].classList.remove("active");
       e.currentTarget.classList.add("active");
-      applyFilter(e.currentTarget.getAttribute("data-status"));
+      var status = e.currentTarget.getAttribute("data-status");
+      applyFilter(status);
+      if (status === "хочу прочитать") {
+        var sec = document.getElementById("no-date-section");
+        if (sec) sec.scrollIntoView({ behavior: "smooth" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     });
   }
 
