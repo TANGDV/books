@@ -165,13 +165,43 @@
       return Math.max(0, Math.min(di, totalDays));
     }
 
-    // Create and measure cards
+    // Pre-compute minimum card width from max concurrent track lanes
+    var axisLeft = parseInt(getComputedStyle(timelineEl).getPropertyValue("--axis-left")) || 50;
+    var defaultLeft = parseInt(getComputedStyle(timelineEl).getPropertyValue("--cards-left")) || 90;
+    var TRACK_CARD_PAD = 10;
+    var maxLanes = 0;
+    var trackEvents = [];
+    for (var i = 0; i < entries.length; i++) {
+      var e = entries[i];
+      if (!e.end && e.book.status !== "читаю") continue;
+      trackEvents.push({ t: e.start.getTime(), d: 1 });
+      trackEvents.push({ t: (e.end || today).getTime(), d: -1 });
+    }
+    trackEvents.sort(function (a, b) { return a.t !== b.t ? a.t - b.t : a.d - b.d; });
+    var concurrent = 0;
+    for (var i = 0; i < trackEvents.length; i++) {
+      concurrent += trackEvents[i].d;
+      if (concurrent > maxLanes) maxLanes = concurrent;
+    }
+    var maxCardsLeft = defaultLeft;
+    if (maxLanes > 0) {
+      var maxTrackRight = axisLeft + TRACK_OFFSET + (maxLanes - 1) * (TRACK_WIDTH + TRACK_GAP) + TRACK_WIDTH;
+      if (maxTrackRight + TRACK_CARD_PAD > maxCardsLeft) {
+        maxCardsLeft = maxTrackRight + TRACK_CARD_PAD;
+      }
+    }
+
+    // Create and measure cards at minimum possible width
     var items = [];
     for (var i = 0; i < entries.length; i++) {
       var el = document.createElement("div");
       el.className = "tl-item";
       el.style.visibility = "hidden";
       el.setAttribute("data-status", entries[i].book.status || "");
+      if (maxCardsLeft > defaultLeft) {
+        el.style.left = maxCardsLeft + "px";
+        el.style.width = "calc(100% - " + maxCardsLeft + "px)";
+      }
       el.appendChild(createCard(entries[i].book));
       itemsEl.appendChild(el);
       items.push({ el: el, entry: entries[i], h: 0, y: 0 });
@@ -311,7 +341,6 @@
     }
 
     // Duration tracks
-    var axisLeft = parseInt(getComputedStyle(timelineEl).getPropertyValue("--axis-left")) || 50;
     var trackContainer = document.createElement("div");
     trackContainer.id = "track-container";
     itemsEl.appendChild(trackContainer);
@@ -360,9 +389,7 @@
       items[t.itemIdx].trackEl = el;
     }
 
-    // Push cards right if tracks overlap at their vertical range
-    var defaultLeft = parseInt(getComputedStyle(timelineEl).getPropertyValue("--cards-left")) || 90;
-    var TRACK_CARD_PAD = 10;
+    // Refine card widths based on actual track overlap (can only widen, never narrow)
     for (var i = 0; i < items.length; i++) {
       var cardTop = items[i].y;
       var cardBot = items[i].y + items[i].h;
@@ -377,34 +404,9 @@
         var needed = maxRight + TRACK_CARD_PAD;
         items[i].el.style.left = needed + "px";
         items[i].el.style.width = "calc(100% - " + needed + "px)";
-      }
-    }
-
-    // Re-measure cards that got narrower and fix vertical placement
-    var needsFixup = false;
-    for (var i = 0; i < items.length; i++) {
-      var newH = items[i].el.getBoundingClientRect().height;
-      if (newH > items[i].h + 0.5) {
-        items[i].h = newH;
-        needsFixup = true;
-      }
-    }
-    if (needsFixup) {
-      for (var g = 0; g < groups.length; g++) {
-        var y = cumY[groups[g].di];
-        for (var j = 0; j < groups[g].items.length; j++) {
-          var item = groups[g].items[j];
-          item.y = y;
-          item.el.style.top = y + "px";
-          y += item.h + GAP;
-        }
-      }
-      var lastItem = items[items.length - 1];
-      var newTotal = lastItem.y + lastItem.h + GAP;
-      if (newTotal > totalHeight) {
-        totalHeight = newTotal;
-        itemsEl.style.height = totalHeight + "px";
-        axisEl.style.height = totalHeight + "px";
+      } else {
+        items[i].el.style.left = "";
+        items[i].el.style.width = "";
       }
     }
 
