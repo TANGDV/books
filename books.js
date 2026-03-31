@@ -36,7 +36,7 @@ const BOOKS = [
     "rating": null,
     "notes": "",
     "startDate": "2026-03-27",
-    "endDate": "2026-03-27",
+    "endDate": "2026-03-28",
     "cover": "",
     "quotes": [],
     "categories": [
@@ -202,10 +202,10 @@ const BOOKS = [
   {
     "title": "Возвращение Рейвенора",
     "author": "Дэн Абнетт",
-    "status": "хочу прочитать",
+    "status": "читаю",
     "rating": null,
     "notes": "",
-    "startDate": "",
+    "startDate": "2026-03-30",
     "endDate": "",
     "cover": "",
     "quotes": [],
@@ -219,11 +219,11 @@ const BOOKS = [
   {
     "title": "Рейвенор",
     "author": "Дэн Абнетт",
-    "status": "читаю",
-    "rating": null,
+    "status": "прочитал",
+    "rating": 4.2,
     "notes": "",
     "startDate": "2026-03-23",
-    "endDate": "",
+    "endDate": "2026-03-30",
     "cover": "",
     "quotes": [],
     "categories": [
