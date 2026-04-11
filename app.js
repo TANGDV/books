@@ -6,10 +6,6 @@
     "читаю": "#e8c547",
     "хочу прочитать": "#c45c5c",
   };
-  var MONTH_NAMES = [
-    "янв", "фев", "мар", "апр", "май", "июн",
-    "��юл", "авг", "сен", "окт", "ноя", "дек",
-  ];
   var MONTH_NAMES_FULL = [
     "январь", "февраль", "март", "апрель", "май", "июнь",
     "июль", "август", "сентябрь", "октябрь", "ноябрь", "декабрь",
@@ -36,90 +32,30 @@
     return Math.round((b - a) / 86400000);
   }
 
-  function formatDate(str) {
-    if (!str) return "";
-    var p = str.split("-");
-    if (p.length < 2) return str;
-    return +p[2] + " " + MONTH_NAMES[+p[1] - 1] + " " + p[0];
-  }
-
-  // --- Card creation ---
-
-  function createCard(book) {
-    var card = document.createElement("div");
-    card.className = "tl-card";
-
-    var title = document.createElement("div");
-    title.className = "tl-title";
-    title.textContent = book.title;
-    card.appendChild(title);
-
-    var author = document.createElement("div");
-    author.className = "tl-author";
-    author.textContent = book.author;
-    card.appendChild(author);
-
-    var meta = document.createElement("div");
-    meta.className = "tl-meta";
-
-    if (book.status) {
-      var s = document.createElement("span");
-      s.className = "tl-status";
-      s.setAttribute("data-status", book.status);
-      s.textContent = book.status;
-      meta.appendChild(s);
-    }
-
-    var dates = document.createElement("span");
-    dates.className = "tl-dates";
-    var dStr = formatDate(book.startDate);
-    if (book.endDate) dStr += " \u2014 " + formatDate(book.endDate);
-    dates.textContent = dStr;
-    meta.appendChild(dates);
-
-    if (book.rating) {
-      var r = document.createElement("span");
-      r.className = "tl-rating";
-      var stars = "";
-      for (var i = 1; i <= 5; i++) stars += i <= book.rating ? "\u2605" : "\u2606";
-      r.textContent = stars;
-      meta.appendChild(r);
-    }
-
-    card.appendChild(meta);
-
-    if (book.categories && book.categories.length) {
-      var cats = document.createElement("div");
-      cats.className = "tl-categories";
-      cats.textContent = book.categories.join(" / ");
-      card.appendChild(cats);
-    }
-
-    return card;
-  }
-
   // --- Build timeline ---
 
   function buildTimeline() {
-    if (typeof BOOKS === "undefined" || !BOOKS.length) return;
+    var tlItems = Array.prototype.slice.call(itemsEl.querySelectorAll(".tl-item"));
+    if (!tlItems.length) return;
 
     var today = new Date();
     var entries = [];
-    var withoutDate = [];
 
-    for (var i = 0; i < BOOKS.length; i++) {
-      var b = BOOKS[i];
-      var sd = parseDate(b.startDate);
+    for (var i = 0; i < tlItems.length; i++) {
+      var el = tlItems[i];
+      var status = el.getAttribute("data-status") || "";
+      var startStr = el.getAttribute("data-start") || "";
+      var endStr = el.getAttribute("data-end") || "";
+      var sd = parseDate(startStr);
       if (sd) {
-        var ed = parseDate(b.endDate);
+        var ed = endStr ? parseDate(endStr) : null;
         entries.push({
-          book: b,
+          el: el,
+          book: { status: status },
           start: sd,
           end: ed,
-          anchor: ed || (b.status === "читаю" ? today : sd),
+          anchor: ed || (status === "читаю" ? today : sd),
         });
-      } else {
-        withoutDate.push(b);
       }
     }
 
@@ -178,19 +114,14 @@
       }
     }
 
-    // Create and measure cards at minimum possible width
+    // Measure existing cards
     var items = [];
     for (var i = 0; i < entries.length; i++) {
-      var el = document.createElement("div");
-      el.className = "tl-item";
-      el.style.visibility = "hidden";
-      el.setAttribute("data-status", entries[i].book.status || "");
+      var el = entries[i].el;
       if (maxCardsLeft > defaultLeft) {
         el.style.left = maxCardsLeft + "px";
         el.style.width = "calc(100% - " + maxCardsLeft + "px)";
       }
-      el.appendChild(createCard(entries[i].book));
-      itemsEl.appendChild(el);
       items.push({ el: el, entry: entries[i], h: 0, y: 0 });
     }
     for (var i = 0; i < items.length; i++) {
@@ -407,27 +338,6 @@
           if (item.trackEl) item.trackEl.classList.remove("highlight");
         });
       })(items[i]);
-    }
-
-    // No-date books
-    if (withoutDate.length) {
-      var section = document.createElement("div");
-      section.id = "no-date-section";
-
-      var lbl = document.createElement("div");
-      lbl.id = "no-date-label";
-      lbl.textContent = "\u0425\u041E\u0427\u0423 \u041F\u0420\u041E\u0427\u0418\u0422\u0410\u0422\u042C";
-      section.appendChild(lbl);
-
-      var container = document.createElement("div");
-      container.id = "no-date-items";
-      for (var i = 0; i < withoutDate.length; i++) {
-        var card = createCard(withoutDate[i]);
-        card.setAttribute("data-status", withoutDate[i].status || "");
-        container.appendChild(card);
-      }
-      section.appendChild(container);
-      timelineEl.appendChild(section);
     }
   }
 
