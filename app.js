@@ -199,7 +199,7 @@
         var item = groups[g].items[j];
         item.y = y;
         item.el.style.top = y + "px";
-        item.el.style.visibility = "";
+        item.el.style.visibility = "visible";
         y += item.h + GAP;
       }
     }
