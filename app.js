@@ -337,6 +337,15 @@
         item.el.addEventListener("mouseleave", function () {
           if (item.trackEl) item.trackEl.classList.remove("highlight");
         });
+        item.el.addEventListener("touchstart", function () {
+          if (item.trackEl) item.trackEl.classList.add("highlight");
+        }, { passive: true });
+        item.el.addEventListener("touchend", function () {
+          if (item.trackEl) item.trackEl.classList.remove("highlight");
+        }, { passive: true });
+        item.el.addEventListener("touchcancel", function () {
+          if (item.trackEl) item.trackEl.classList.remove("highlight");
+        }, { passive: true });
       })(items[i]);
     }
   }
