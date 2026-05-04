@@ -160,6 +160,7 @@ body {
 
 .tl-cover {
   flex-shrink: 0;
+  align-self: flex-start;
   width: 70px;
   aspect-ratio: 2 / 3;
   object-fit: cover;
