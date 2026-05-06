@@ -214,6 +214,7 @@ body {
 .tl-status {
   font-size: 11px;
   padding: 2px 8px;
+  margin-top: 6px;
   border-radius: 10px;
   border: 1px solid;
 }
@@ -238,6 +239,14 @@ body {
   color: #888;
   margin-top: 8px;
   line-height: 1.45;
+}
+
+.tl-isbn {
+  font-size: 10px;
+  color: #444;
+  margin-top: 6px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.5px;
 }
 
 .tl-quotes {
