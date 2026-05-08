@@ -270,45 +270,6 @@ body {
   border-left: 2px solid #2a2a2e;
 }
 
-/* Done stats (прочитал / прослушал breakdown) */
-
-.done-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 20px;
-  font-size: 12px;
-}
-
-.done-stat {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border-radius: 20px;
-  border: 1px solid;
-  font-weight: 500;
-  letter-spacing: 0.3px;
-}
-
-.done-stat--read {
-  color: #4aba70;
-  border-color: rgba(74, 186, 112, 0.25);
-  background: rgba(74, 186, 112, 0.06);
-}
-
-.done-stat--listen {
-  color: #6ab0e8;
-  border-color: rgba(106, 176, 232, 0.25);
-  background: rgba(106, 176, 232, 0.06);
-}
-
-.done-stat-sep {
-  color: #333;
-  font-size: 14px;
-  line-height: 1;
-}
-
 @media (max-width: 640px) {
   #content {
     padding: 24px 16px 40px;
